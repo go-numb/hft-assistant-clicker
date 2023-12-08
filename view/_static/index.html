@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HFT ASSISTANT CLICKER</title>
+
+    <!-- <script src="https://unpkg.com/vue@3.2.47/dist/vue.global.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <!-- import CSS -->
+    <!-- <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css"> -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/element-ui@2.15.13/lib/theme-chalk/index.min.css">
+    <!-- import JavaScript -->
+    <!-- <script src="https://unpkg.com/element-ui/lib/index.js"></script> -->
+    <script src="https://cdn.jsdelivr.net/npm/element-ui@2.15.13/lib/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <el-tabs v-model="activeName" @tab-click="handleClick">
+            <el-tab-pane label="ロジック" name="first">
+
+                <el-form ref="form" :model="form" label-width="120px">
+                    <el-form-item label="シンボル（通貨ペア名）">
+                        <el-input v-model="form.symbol"></el-input>
+                    </el-form-item>
+                    <el-form-item label="Pipe fullpath">
+                        <el-input v-model="form.filename" disabled></el-input>
+                    </el-form-item>
+
+
+                    <!-- Mouse Option -->
+                    <!-- <p>※ 遅延を伴ってマウスを座標から「滑らかに」別の座標に移動させるオプションを提供し、ボタンの中心に戻すこともできます。検証では約定拒否が50%強減り、約定率が20%強増えました。</p>
+                    <el-form-item label="マウス中央待機">
+                        <el-switch v-model="form.is_mouse_center" disabled></el-switch>
+                    </el-form-item>
+                    <el-form-item label="乱数遅延モード">
+                        <el-switch v-model="form.is_move_object" disabled></el-switch>
+                    </el-form-item> -->
+
+
+
+                    <!-- logic -->
+                    <el-form-item label="注文タイプ">
+                        <el-select v-model="form.logic.type" placeholder="please choose mode">
+                            <el-option label="方向不問" value="0"></el-option>
+                            <el-option label="買いエントリーのみ" value="1"></el-option>
+                            <el-option label="売りエントリーのみ" value="2"></el-option>
+                            <el-option label="決済注文のみ" value="3"></el-option>
+                            <el-option label="売り注文に対する決済のみ" value="4"></el-option>
+                            <el-option label="買い注文に対する決済のみ" value="5"></el-option>
+                        </el-select>
+                    </el-form-item>
+
+                    <!-- 判定間隔 数値入力用 -->
+                    <!-- <el-form-item label="判定間隔[ms]">
+                        <el-input-number v-model.number="form.logic.term_millisec" type="number" :step="1" :min="1"
+                            :max="1000"></el-input-number>
+                    </el-form-item> -->
+
+                    <!-- 判定間隔 選択用 -->
+                    <el-form-item label="モメンタムスピード">
+                        <el-select v-model="form.logic.term_millisec" placeholder="please choose">
+                            <el-option label="超高速" value="0"></el-option>
+                            <el-option label="高速" value="1"></el-option>
+                            <el-option label="中速" value="2"></el-option>
+                            <el-option label="低速" value="3"></el-option>
+                        </el-select>
+                    </el-form-item>
+
+
+                    <el-form-item label="ボラティリティ[pips]">
+                        <el-input-number v-model.number="form.logic.pips" type="number" :precision="3" :step="0.001"
+                            :min="0.001" :max="1"></el-input-number>
+                    </el-form-item>
+                    <el-form-item label="決済実行までの待機時間[s]">
+                        <el-input-number v-model.number="form.logic.interval" type="number" :step="1" :min="1"
+                            :max="1000"></el-input-number>
+                    </el-form-item>
+                    <el-form-item label="決済実行までの待機時間をランダムにする">
+                        <el-switch v-model="form.logic.interval_is_random"></el-switch>
+                    </el-form-item>
+
+
+
+                    <el-form-item>
+                        <el-button type="primary" @click="_onUpdate">保存</el-button>
+                    </el-form-item>
+                </el-form>
+            </el-tab-pane>
+            <el-tab-pane label="クリック" name="third">
+                <h2>ボタン登録</h2>
+                <p>登録を押した後、各注文ボタンの座標をドラッグアンドドロップで指定してください。登録後、ポップアップが表示されます。注文時、登録した座標内をランダムにクリックします。
+                </p>
+                <p>例）オブジェクトの左上をクリックしそのまま右下までドラッグしてください。マウスボタンを離せば登録完了通知ポップアップが表示されます。</p>
+                <p>{{result}}</p>
+                <el-form label-width="80px">
+                    <div class="margin-10"><el-divider></el-divider></div>
+                    <el-row :gutter="20">
+                        <el-col :span="16">
+                            <el-row :gutter="20">
+                                <el-col :span="8">
+                                    <el-form-item label="X">
+                                        <el-input
+                                            :value="0.5 * (form.objects.entry_buy.area.X1 + form.objects.entry_buy.area.X2)"
+                                            disabled></el-input>
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="8">
+                                    <el-form-item label="Y">
+                                        <el-input
+                                            :value="0.5 * (form.objects.entry_buy.area.Y1 + form.objects.entry_buy.area.Y2)"
+                                            disabled></el-input>
+                                    </el-form-item>
+                                </el-col>
+                            </el-row>
+                        </el-col>
+                        <el-col :span="6">
+                            <el-form-item>
+                                <el-button type="primary" @click="_onSetMouse('entry_buy')">買いボタン登録</el-button>
+                            </el-form-item>
+                            <el-form-item>
+                                <el-button type="success" @click="_onConfirmMouse('entry_buy')">確認</el-button>
+                            </el-form-item>
+                        </el-col>
+                    </el-row>
+                    <div class="margin-10"><el-divider></el-divider></div>
+                    <el-row :gutter="20">
+                        <el-col :span="16">
+                            <el-row :gutter="20">
+                                <el-col :span="8">
+                                    <el-form-item label="X">
+                                        <el-input
+                                            :value="0.5 * (form.objects.entry_sell.area.X1 + form.objects.entry_sell.area.X2)"
+                                            disabled></el-input>
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="8">
+                                    <el-form-item label="Y">
+                                        <el-input
+                                            :value="0.5 * (form.objects.entry_sell.area.Y1 + form.objects.entry_sell.area.Y2)"
+                                            disabled></el-input>
+                                    </el-form-item>
+                                </el-col>
+                            </el-row>
+                        </el-col>
+                        <el-col :span="6">
+                            <el-form-item>
+                                <el-button type="primary" @click="_onSetMouse('entry_sell')">売りボタン登録</el-button>
+                            </el-form-item>
+                            <el-form-item>
+                                <el-button type="success" @click="_onConfirmMouse('entry_sell')">確認</el-button>
+                            </el-form-item>
+                        </el-col>
+                    </el-row>
+                    <div class="margin-10"><el-divider></el-divider></div>
+                    <el-row :gutter="20">
+                        <p>「待機時間」とは、繰り返し回数が2回以上の場合に、次の決済を行うまでに待機する時間のことを指します。</p>
+                        <el-col :span="16">
+                            <el-row :gutter="20">
+                                <el-col :span="8">
+                                    <el-form-item label="X">
+                                        <el-input :value="0.5 * (form.objects.exit.area.X1 + form.objects.exit.area.X2)"
+                                            disabled></el-input>
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="8">
+                                    <el-form-item label="Y">
+                                        <el-input :value="0.5 * (form.objects.exit.area.Y1 + form.objects.exit.area.Y2)"
+                                            disabled></el-input>
+                                    </el-form-item>
+                                </el-col>
+                            </el-row>
+                            <el-row :gutter="20">
+                                <el-col :span="8">
+                                    <el-form-item label="乱数[px]">
+                                        <el-input v-model.number="form.objects.exit.random_pixel" type="number"
+                                            :min="1"></el-input>
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="8">
+                                    <el-form-item label="繰返">
+                                        <el-input v-model.number="form.objects.exit.loop_order_n" type="number" :min="1"
+                                            :max="10"></el-input>
+                                    </el-form-item>
+                                </el-col>
+                                <el-col :span="8">
+                                    <el-form-item label="待機時間[ms]">
+                                        <el-input v-model.number="form.objects.exit.loop_wait_millisec" type="number"
+                                            :min="100"></el-input>
+                                    </el-form-item>
+                                </el-col>
+                            </el-row>
+                        </el-col>
+                        <el-col :span="6">
+                            <el-form-item>
+                                <el-button type="primary" @click="_onSetMouse('exit')">決済ボタン登録</el-button>
+                            </el-form-item>
+                            <el-form-item>
+                                <el-button type="success" @click="_onConfirmMouse('exit')">確認</el-button>
+                            </el-form-item>
+                        </el-col>
+                    </el-row>
+                </el-form>
+
+            </el-tab-pane>
+            <el-tab-pane label="起動" name="second">
+                <h3>プログラムにマウス権限を渡します</h3>
+                <p>{{result}}</p>
+                <el-button type="primary" @click="_onStart">スタート</el-button>
+                <el-button type="warning" @click="_onPause">一時停止</el-button>
+            </el-tab-pane>
+
+            <el-tab-pane label="ドキュメント" name="fourth">
+                <h2>説明書</h2>
+                <dl>
+                    <dt>プログラムの概要：</dt>
+                    <dd>MT4/5とEAで取得したデータを解析し、設定したボラティリティを検知します。ボラティリティと設定に応じて、自動注文を行います。注文は取引所の注文画面に沿って、マウス移動とクリックを模倣して実行されます。
+                    </dd>
+                    <dd>当アプリは通信ポート:8080を使用し、ポート:8080とGUIが通信しています。他のアプリや重複起動などでポート:8080が使用されていると起動しません。</dd>
+                    <dd>※上記、マルチポート対応で自動PORT選択になりました。空いているPORTを選択肢起動します。</dd>
+                    <dd>マルチポート起動でピーキーな設定はテストしておらず、サポートしておりません。マウス操作が衝突する可能性2注意してください。</dd>
+                    <dd>注文と決済が発生すると、プログラムはマウスコントロールします。[pips]を低くすると発生が多発するため注意が必要です。
+                    </dd>
+                    <dd>取引サーバーを借りるのがベターです。WindowsOSをサポートしています。</dd>
+
+                    <dt>サポートシンボル：</dt>
+                    <dd>取引したいシンボル（通貨ペア）をOandaのシンボル名をそのまま入力してください。対日本円各種主要通貨と対米ドル一部通貨をサポートしています。米ドルシンボルは、[EUR,GBP,AUD,XAU]をサポートしています。対米ドルに関する[pips]については以下項目を参照してください。
+                    </dd>
+                    <dd>シンボルを登録すると[Pipe fullpath]が更新されます。[Pipe fullpath]とはEAと通信する上での通信パイプ名です。</dd>
+
+                    <dt>注文管理：</dt>
+                    <dd>プログラムは1スレッド（注文プログラムを一度起動する単位）ごとに1建玉を管理します。新規注文が発生し、決済されるまで、同一スレッドでの新規注文は見送られます。しかし、極稀に同時発生注文の重複が起こる可能性があることにご注意ください。
+                    </dd>
+
+                    <dt>1建玉：</dt>
+                    <dd>1建玉とは新規と決済までを総称し、発注単位は決定することができます。</dd>
+
+                    <dt>設定変更と適用：</dt>
+                    <dd>ロジック項目はアプリ起動ごと、マウス座標は注文の度に設定が参照されます。ロジック項目は再起動を経て適用です。設定変更を行う際は一時停止後の変更を推奨しています。</dd>
+
+                    <dt>判定間隔[ms]：</dt>
+                    <dd>ボラティリティ（値動き）発生の勢いやスピードを4段階から選択し設定します。設定速度が速ければ速いほど、瞬時の値動きを捉えます。その時の相場環境や考えに応じて調整が可能です。
+                    </dd>
+                    <dd>
+                        例:<br>
+                        ・値動きに勢いがあるので、その瞬間的な値動きに出来るだけ速く乗りたいから速めの設定にする。<br>
+
+                        ・値動きの勢いは重視し無くても良いので、遅めの設定にしてエントリーをする。<br>
+                    </dd>
+
+                    <dt>注文タイプ：</dt>
+                    <dd>注文タイプ項目の適用については、変更後再起動必須です。</dd>
+                    <dd>注文する、とは、指定座標をクリックすると同義です。</dd>
+                    <dd>
+                        [方向不問]では、設定条件が発生すると、売りもしくは買いの方向で新規注文が行われ、決済されます。ただし、既に売りあるいは買いの建玉が存在している場合は、決済が完了するまで新規注文は行われません。
+                        <br>
+                        [買いエントリーのみ]では、新規の買い注文および決済が行われます。<br>
+                        [売りエントリーのみ]では、新規の売り注文および決済が行われます。<br>
+                        [決済注文のみ]で、既存の仮定建玉（売りか買いかは問わない）を対象にして決済注文を実行します。新規建玉注文は手動で行い、決済時だけ自動で行いたい場合に使用します。<br>
+                        [売り注文に対する決済のみ]で、売り建玉が存在すると仮定して決済注文を自動的に実行します。手動で売り注文を行い、決済時に自動で市場の変動に対応したい場合に使用します。<br>
+                        [買い注文に対する決済のみ]で、買い建玉が存在すると仮定して決済注文を自動的に実行します。手動で買い注文を行い、決済時に自動で市場の変動に対応したい場合に使用します。
+                    </dd>
+
+                    <dt>pipsについて：</dt>
+                    <dd>本アプリ内の[pips]設定では、小数点で定義しており、0.01を1pipsとして扱います。範囲は0.001から1です。ボラ検知頻度が上がる（pips値を下げる）とプログラムがマウスコントロールを使用する頻度が上がるため注意が必要です。
+                    </dd>
+
+                    <dt>決済実行までの待機時間[s]：</dt>
+                    <dd>決済実行までの待機時間[s]とは、新規注文からの決済注文までの時間です。単位は秒であり、範囲は1-1000です。
+                    </dd>
+
+                    <dt>ボタン登録：</dt>
+                    <dd>プログラムを開始する前に、ボタン登録を行ってください。エントリー注文のクリックは1回固定ですが、決済注文は繰り返し回数を設定することができます。0値は無効となりますので、決済が行われなくなります。
+                    </dd>
+
+                    <dt>マウス座標登録：</dt>
+                    <dd>マウス座標は、ドラッグアンドドロップで登録します。登録後に表示される座標は、指定範囲内の中心点です。プログラムでは、指定範囲内でランダムにクリックが行われます。</dd>
+
+                    <dt>決済ボタンについて：</dt>
+                    <dd>座標登録をすると同時に変更がなされます。乱数、繰り返し回数を変更する際は、必ず座標登録をして下さい。乱数、繰り返しは一度に登録可能です。どちらかのみを変更したい場合も、座標登録が必要です。
+                    </dd>
+
+                    <dt>各確認ボタンについて：</dt>
+                    <dd>登録ボタンの範囲座標内をランダムで10回移動します。移動であり、クリックは行いません。終了時、ポップアップメッセージが表示されます。</dd>
+
+                    <dt>プログラムの開始と一時停止：</dt>
+                    <dd>プログラムは、起動中の設定変更や一時停止が可能ですが、頻繁な変更は避けるようお願いします。また、ロジック項目については設定変更後再起動を経て適用されます。</dd>
+                    <dd>一時停止は反映に時間がかかることがあります。マウスコントロールを停止したい場合は当アプリを、注文を確実に拒否したい場合は注文先ブラウザをクローズすることを推奨します。</dd>
+                    <dd>ウィンドウクローズショートカット: 「 Ctrl+W 」</dd>
+                    <dd>アプリクローズショートカット: 「 Alt+F4 」</dd>
+                    <dd>プログラム指定強制終了ショートカット: 「 Ctrl+Shift+Q 」</dd>
+
+                    <dt>シンボル変更：</dt>
+                    <dd>プログラムが起動中のシンボル変更は対応していません。再起動後に設定を行ってください。</dd>
+                </dl>
+            </el-tab-pane>
+        </el-tabs>
+    </div>
+</body>
+<script>
+    axios.defaults.baseURL = "http://localhost:8080"
+    new Vue({
+        el: '#app',
+        data() {
+            return {
+                activeName: "first",
+                result: "",
+                form: {
+                    logic: {},
+                },
+            }
+        },
+        beforeMount() {
+            this._onGet()
+        },
+        methods: {
+            _change(msec) {
+                if (msec == 1) {
+                    return "0"
+                } else if (msec == 10) {
+                    return "1"
+                } else if (msec == 100) {
+                    return "2"
+                } else if (msec == 1000) {
+                    return "3"
+                }
+                return undefined
+            },
+            _onGet() {
+                console.log('read setting');
+                axios.get(
+                    "/api/setting",
+                ).then(res => {
+                    console.log("success", res.data);
+                    this.form = res.data
+
+                    this.form.logic.type = res.data.logic.type.toString()
+                    const msec = this._change(res.data.logic.term_millisec)
+                    this.form.logic.term_millisec = msec
+
+
+                    console.log("success", res.data);
+                }).catch(err => {
+                    console.log(err);
+                })
+            },
+            _onSetMouse(e) {
+                console.log('set mouse setting', e);
+                axios.post(
+                    "/api/mouse?q=" + e,
+                    this.form.objects,
+                ).then(res => {
+                    console.log("success", res.data);
+                    if (e == "entry_buy") {
+                        this.form.objects.entry_buy.area.Y1 = res.data.area.min_y
+                        this.form.objects.entry_buy.area.X1 = res.data.area.min_x
+                        this.form.objects.entry_buy.area.Y1 = res.data.area.max_y
+                        this.form.objects.entry_buy.area.X1 = res.data.area.max_x
+                        this.form.objects.entry_buy.random_pixel = res.data.random_pixel
+                        this.form.objects.entry_buy.loop_order_n = res.data.loop_order_n
+                        this.form.objects.entry_buy.loop_wait_millisec = res.data.loop_wait_millisec
+                    } else if (e == "entry_sell") {
+                        this.form.objects.entry_sell.area.Y1 = res.data.area.min_y
+                        this.form.objects.entry_sell.area.X1 = res.data.area.min_x
+                        this.form.objects.entry_sell.area.Y1 = res.data.area.max_y
+                        this.form.objects.entry_sell.area.X1 = res.data.area.max_x
+                        this.form.objects.entry_sell.random_pixel = res.data.random_pixel
+                        this.form.objects.entry_sell.loop_order_n = res.data.loop_order_n
+                        this.form.objects.entry_sell.loop_wait_millisec = res.data.loop_wait_millisec
+                    } else if (e == "exit") {
+                        this.form.objects.exit.area.Y1 = res.data.area.min_y
+                        this.form.objects.exit.area.X1 = res.data.area.min_x
+                        this.form.objects.exit.area.Y1 = res.data.area.max_y
+                        this.form.objects.exit.area.X1 = res.data.area.max_x
+                        this.form.objects.exit.random_pixel = res.data.random_pixel
+                        this.form.objects.exit.loop_order_n = res.data.loop_order_n
+                        this.form.objects.exit.loop_wait_millisec = res.data.loop_wait_millisec
+                    }
+
+                    this.result = res.data.msg
+                    this.$notify({
+                        title: '成功',
+                        message: `[[${res.data.area.max_x},${res.data.area.max_y}],[${res.data.area.min_x},${res.data.area.min_y}]]` + "座標登録しました",
+                        type: 'success'
+                    })
+                    console.log("set object", this.form.objects);
+                }).catch(err => {
+                    this.$notify.error({
+                        title: '座標登録失敗',
+                        message: err,
+                    });
+                    console.log(err);
+                })
+            },
+            _onConfirmMouse(e) {
+                console.log('set mouse setting', e);
+                axios.get(
+                    "/api/mouse?key=" + e
+                ).then(res => {
+                    this.$notify({
+                        title: '確認終了',
+                        message: res.data.msg,
+                        type: 'success'
+                    });
+                    console.log("success", res.data);
+                }).catch(err => {
+                    this.$notify.error({
+                        title: '確認失敗',
+                        message: err,
+                    });
+                    console.log(err);
+                })
+            },
+            _onUpdate() {
+                console.log('send update');
+                axios.post(
+                    "/api/setting",
+                    this.form,
+                ).then(res => {
+                    this.$notify({
+                        title: '成功',
+                        message: "登録を受け付けました。",
+                        type: 'success'
+                    })
+                    console.log("success", res.data);
+                }).catch(err => {
+                    this.$notify.error({
+                        title: '登録失敗',
+                        message: err,
+                    });
+                    console.log(err);
+                })
+            },
+            _onStart() {
+                if (this.form.objects.entry_buy.y == 0 && this.form.objects.entry_buy.x == 0) {
+                    this.result = "FAIL: You should registor trade button. go to Objects tab."
+                    return
+                }
+                console.log('start program');
+                axios.get(
+                    "/api/program?q=start",
+                ).then(res => {
+                    console.log("success", res.data);
+                    this.result = res.data
+                }).catch(err => {
+                    this.result = err
+                    console.log(err);
+                })
+            },
+            _onPause() {
+                console.log('start program');
+                axios.get(
+                    "/api/program?q=stop",
+                ).then(res => {
+                    console.log("success", res.data);
+                    this.result = res.data
+                }).catch(err => {
+                    this.result = err
+                    console.log(err);
+                })
+            },
+        }
+    })
+</script>
+
+<style>
+    dt {
+        font-weight: bold;
+    }
+
+    dd {
+        margin-bottom: 2em;
+    }
+
+    .margin-10 {
+        margin-bottom: 3rem;
+    }
+</style>
+
+</html>
