@@ -56,7 +56,7 @@ A: コマンドプロンプトまたはPowerShellで次のコマンドを使用�
 
 ## 参考
 
-![デモ取引損益履歴プロット](https://github.com/go-numb/hft-assistant-clicker/blob/images/demo.jpg)
+![デモ取引損益履歴プロット](https://github.com/go-numb/hft-assistant-clicker/blob/images/_data/demo.jpg)
 
 ## Author
 
