@@ -53,3 +53,15 @@ A：WebView2アプリケーションはファイアウォールの設定を必�
 Q: Windows11で "net user "でSIDが表示されない場合、どのようにしたら自分のSIDを見つけることができますか？
 
 A: コマンドプロンプトまたはPowerShellで次のコマンドを使用して、SIDを見つけます：`wmic useraccount where "name='%username%'" get sid`.
+
+## 参考
+
+![デモ取引損益履歴プロット](https://github.com/go-numb/hft-assistant-clicker/blob/images/demo.jpg)
+
+## Author
+
+[@_numbP](https://twitter.com/_numbP)
+
+## License
+
+[MIT](https://github.com/go-numb/hft-assistant-clicker/blob/master/LICENSE)
